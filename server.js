@@ -164,10 +164,11 @@ app.post('/api/receive-batch', async (req, res) => {
       })),
     });
 
-    if (result.status === 200 || result.status === 201) {
-      res.json({ success: true, receiver: result.data });
+    const errors = result.data?.meta?.errors || [];
+    if (result.status === 200 && errors.length === 0) {
+      res.json({ success: true });
     } else {
-      res.status(502).json({ success: false, error: 'AM API returned ' + result.status, details: result.data });
+      res.status(502).json({ success: false, error: errors.join('; ') || 'AM API returned ' + result.status, details: result.data });
     }
   } catch (err) {
     console.error('Batch receive error:', err);
