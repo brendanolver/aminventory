@@ -114,23 +114,19 @@ app.post('/api/receive', async (req, res) => {
     });
 
     const result = await amRequest('POST', 'receivers', {}, {
-      warehouse_id: WAREHOUSE_ID,
-      vendor_id: VENDOR_ID,
-      date: today,
-      adjustment_type: 'both',
-      receiver_items: [{
-        sku_id,
-        qty: String(qty),
+      header: {
+        vendor_id: VENDOR_ID,
         warehouse_id: WAREHOUSE_ID,
-        unit_cost: cost || '0',
-        is_inventory: '1',
-      }],
+      },
+      items: [{ sku_id, qty: String(qty) }],
     });
 
-    if (result.status === 200 || result.status === 201) {
-      res.json({ success: true, receiver: result.data });
+    const errors = result.data?.meta?.errors || [];
+    const receiver = result.data?.response?.[0];
+    if (result.status === 200 && errors.length === 0 && receiver) {
+      res.json({ success: true, receiver_id: receiver.receiver_id });
     } else {
-      res.status(502).json({ success: false, error: 'AM API returned ' + result.status, details: result.data });
+      res.status(502).json({ success: false, error: errors.join('; ') || 'AM API returned ' + result.status, details: result.data });
     }
   } catch (err) {
     console.error('Receive error:', err);
@@ -151,21 +147,21 @@ app.post('/api/receive-batch', async (req, res) => {
     });
 
     const result = await amRequest('POST', 'receivers', {}, {
-      warehouse_id: WAREHOUSE_ID,
-      vendor_id: VENDOR_ID,
-      date: today,
-      adjustment_type: 'both',
-      receiver_items: items.map(item => ({
+      header: {
+        vendor_id: VENDOR_ID,
+        warehouse_id: WAREHOUSE_ID,
+      },
+      items: items.map(item => ({
         sku_id: item.sku_id,
         qty: String(item.qty),
-        warehouse_id: WAREHOUSE_ID,
-        unit_cost: item.cost || '0',
-        is_inventory: '1',
       })),
     });
 
     const errors = result.data?.meta?.errors || [];
-    if (result.status === 200 && errors.length === 0) {
+    const receiver = result.data?.response?.[0];
+    if (result.status === 200 && errors.length === 0 && receiver) {
+      res.json({ success: true, receiver_id: receiver.receiver_id });
+    } else if (result.status === 200 && errors.length === 0) {
       res.json({ success: true });
     } else {
       res.status(502).json({ success: false, error: errors.join('; ') || 'AM API returned ' + result.status, details: result.data });

@@ -308,7 +308,8 @@
 
       if (data.success) {
         const totalQty = batch.reduce((s, b) => s + b.qty, 0);
-        showToast('Done — ' + totalQty + ' units across ' + batch.length + ' SKUs received', 'success');
+        const rcvId = data.receiver_id ? ' (Receiver #' + data.receiver_id + ')' : '';
+        showToast('Done — ' + totalQty + ' units across ' + batch.length + ' SKUs received' + rcvId, 'success');
         batch = [];
         renderBatch();
         document.getElementById('totalCount').textContent = '0';
