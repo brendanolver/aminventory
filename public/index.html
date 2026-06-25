@@ -139,15 +139,37 @@
 <script>
   let batch = [];
   let scanning = false;
+  let scanTimer = null;
 
   const barcodeInput = document.getElementById('barcodeInput');
   const toast = document.getElementById('toast');
   const emptyState = document.getElementById('emptyState');
 
+  // Keep input focused at all times
+  barcodeInput.focus();
+  document.addEventListener('click', () => setTimeout(() => barcodeInput.focus(), 50));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) barcodeInput.focus(); });
+  setInterval(() => { if (document.activeElement !== barcodeInput && !scanning) barcodeInput.focus(); }, 1000);
+
+  // Enter key (some scanners send it)
   barcodeInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      if (scanTimer) { clearTimeout(scanTimer); scanTimer = null; }
       handleScan();
+    }
+  });
+
+  // Auto-detect scan completion: scanners type fast then stop.
+  // Trigger lookup after 300ms of no new input.
+  barcodeInput.addEventListener('input', () => {
+    if (scanTimer) clearTimeout(scanTimer);
+    const val = barcodeInput.value.trim();
+    if (val.length >= 4) {
+      scanTimer = setTimeout(() => {
+        scanTimer = null;
+        handleScan();
+      }, 300);
     }
   });
 
