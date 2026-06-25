@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "stock-scanner",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
+      "port": 3333,
+      "cwd": "/Users/admin/am-stock-scanner"
+    }
+  ]
+}

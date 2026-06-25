@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>WNDRR AM Inventory Updater</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f2f2f7; color: #1c1c1e; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+  .header {
+    padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
+    background: #000;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header img { height: 22px; }
+  .header .divider { width: 1px; height: 20px; background: rgba(255,255,255,0.2); }
+  .header .app-name { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.55); letter-spacing: 0.5px; text-transform: uppercase; }
+  .header .counter { text-align: right; }
+  .header .counter-num { font-size: 32px; font-weight: 700; line-height: 1; letter-spacing: -1px; color: #fff; }
+  .header .counter-label { font-size: 10px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
+
+  .container { padding: 20px; max-width: 600px; margin: 0 auto; }
+
+  .scan-input {
+    width: 100%; padding: 16px; font-size: 18px; border-radius: 12px;
+    border: 1px solid rgba(0,0,0,0.08); background: #fff;
+    color: #1c1c1e; outline: none; font-weight: 500; transition: border-color 0.15s;
+    margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .scan-input::placeholder { color: rgba(0,0,0,0.3); font-weight: 400; }
+  .scan-input:focus { border-color: rgba(0,0,0,0.2); box-shadow: 0 1px 6px rgba(0,0,0,0.08); }
+  .scan-input.scanning { border-color: rgba(0,0,0,0.3); }
+
+  .toast {
+    padding: 12px 16px; border-radius: 10px; margin-bottom: 16px;
+    font-size: 13px; font-weight: 500; display: none; line-height: 1.4;
+  }
+  .toast.visible { display: block; }
+  .toast.success { background: #e8f9ee; border: 1px solid #b8e6c8; color: #15803d; }
+  .toast.error { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; }
+  .toast.info { background: #fff; border: 1px solid rgba(0,0,0,0.08); color: #6b7280; }
+
+  .batch-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 10px; padding: 0 2px;
+  }
+  .batch-header h3 { font-size: 12px; font-weight: 600; color: rgba(0,0,0,0.35); text-transform: uppercase; letter-spacing: 0.8px; }
+  .batch-header .batch-summary { font-size: 12px; color: rgba(0,0,0,0.3); }
+
+  .batch-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px; background: #fff; border-radius: 10px;
+    margin-bottom: 6px; border: 1px solid rgba(0,0,0,0.06);
+    transition: all 0.3s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+  .batch-item.just-added { background: #f0fdf4; border-color: #bbf7d0; }
+  .batch-item .item-sku { font-size: 14px; font-weight: 600; color: #1c1c1e; margin-bottom: 2px; }
+  .batch-item .item-desc { font-size: 12px; color: rgba(0,0,0,0.4); }
+  .batch-item .item-right { display: flex; align-items: center; gap: 12px; }
+  .batch-item .item-qty {
+    font-size: 22px; font-weight: 700; color: #1c1c1e;
+    min-width: 28px; text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .batch-item .item-remove {
+    color: rgba(0,0,0,0.15); cursor: pointer; font-size: 16px;
+    padding: 4px; transition: color 0.15s;
+  }
+  .batch-item .item-remove:hover { color: #ef4444; }
+
+  .batch-spacer { height: 90px; }
+
+  .bottom-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    padding: 14px 20px; background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(0,0,0,0.08);
+    display: none; gap: 10px;
+  }
+  .bottom-bar.visible { display: flex; }
+  .btn-submit {
+    flex: 1; padding: 16px; font-size: 15px; font-weight: 600; border-radius: 10px;
+    border: none; background: #000; color: #fff; cursor: pointer;
+    letter-spacing: 0.3px; transition: opacity 0.15s;
+  }
+  .btn-submit:active { opacity: 0.7; }
+  .btn-submit:disabled { opacity: 0.3; cursor: default; }
+  .btn-clear-all {
+    padding: 16px 18px; font-size: 15px; font-weight: 500; border-radius: 10px;
+    border: 1px solid rgba(0,0,0,0.1); background: #fff;
+    color: rgba(0,0,0,0.5); cursor: pointer; transition: all 0.15s;
+  }
+  .btn-clear-all:active { background: #f5f5f5; }
+
+  .empty-state {
+    text-align: center; padding: 60px 20px; color: rgba(0,0,0,0.2);
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-state p { font-size: 14px; }
+
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(0,0,0,0.1); border-top-color: rgba(0,0,0,0.5); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <img src="/logo.png" alt="WNDRR">
+    <div class="divider"></div>
+    <span class="app-name">AM Inventory Updater</span>
+  </div>
+  <div class="counter">
+    <div class="counter-num" id="totalCount">0</div>
+    <div class="counter-label">Units</div>
+  </div>
+</div>
+
+<div class="container">
+  <input type="text" class="scan-input" id="barcodeInput" placeholder="Ready to scan..." autocomplete="off" autofocus>
+
+  <div id="toast" class="toast"></div>
+
+  <div id="batchList"></div>
+
+  <div id="emptyState" class="empty-state">
+    <div class="empty-icon">&#9634;</div>
+    <p>Scan a barcode to start receiving stock<br>into Shopify Online Store</p>
+  </div>
+
+  <div class="batch-spacer"></div>
+</div>
+
+<div id="bottomBar" class="bottom-bar">
+  <button class="btn-submit" id="btnSubmit" onclick="submitBatch()">Submit to Apparel Magic</button>
+  <button class="btn-clear-all" onclick="clearAll()">Clear</button>
+</div>
+
+<script>
+  let batch = [];
+  let scanning = false;
+
+  const barcodeInput = document.getElementById('barcodeInput');
+  const toast = document.getElementById('toast');
+  const emptyState = document.getElementById('emptyState');
+
+  barcodeInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleScan();
+    }
+  });
+
+  function showToast(msg, type) {
+    toast.innerHTML = msg;
+    toast.className = 'toast visible ' + type;
+  }
+
+  async function handleScan() {
+    const barcode = barcodeInput.value.trim();
+    if (!barcode || scanning) return;
+
+    scanning = true;
+    barcodeInput.classList.add('scanning');
+    barcodeInput.value = '';
+    showToast('<span class="spinner"></span>Looking up ' + barcode + '...', 'info');
+
+    try {
+      const res = await fetch('/api/lookup/' + encodeURIComponent(barcode));
+      const data = await res.json();
+
+      if (!res.ok || !data.found) {
+        showToast('Not found: ' + barcode, 'error');
+        scanning = false;
+        barcodeInput.classList.remove('scanning');
+        barcodeInput.focus();
+        return;
+      }
+
+      const existing = batch.find(b => b.sku_id === data.sku_id);
+      if (existing) {
+        existing.qty += 1;
+      } else {
+        batch.push({
+          sku_id: data.sku_id,
+          sku_alt: data.sku_alt,
+          description: data.description,
+          style_number: data.style_number,
+          size: data.size,
+          attr_2: data.attr_2,
+          cost: data.cost,
+          qty: 1,
+        });
+      }
+
+      renderBatch(data.sku_id);
+      const sizeCol = [data.size, data.attr_2].filter(Boolean).join(' / ');
+      showToast('+1 &nbsp;&middot;&nbsp; ' + data.sku_alt + (sizeCol ? ' &nbsp;&middot;&nbsp; ' + sizeCol : ''), 'success');
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error');
+    }
+
+    scanning = false;
+    barcodeInput.classList.remove('scanning');
+    barcodeInput.focus();
+  }
+
+  function removeBatchItem(idx) {
+    batch.splice(idx, 1);
+    renderBatch();
+    if (!batch.length) toast.className = 'toast';
+  }
+
+  function renderBatch(highlightSkuId) {
+    const el = document.getElementById('batchList');
+    const bar = document.getElementById('bottomBar');
+    const totalEl = document.getElementById('totalCount');
+    const totalQty = batch.reduce((s, b) => s + b.qty, 0);
+    totalEl.textContent = totalQty;
+
+    emptyState.style.display = batch.length ? 'none' : 'block';
+
+    if (!batch.length) {
+      el.innerHTML = '';
+      bar.classList.remove('visible');
+      return;
+    }
+
+    const sorted = [...batch].reverse();
+
+    el.innerHTML =
+      '<div class="batch-header">' +
+        '<h3>Batch</h3>' +
+        '<span class="batch-summary">' + batch.length + ' SKUs &middot; ' + totalQty + ' units</span>' +
+      '</div>' +
+      sorted.map((b) => {
+        const origIdx = batch.indexOf(b);
+        const highlight = b.sku_id === highlightSkuId ? ' just-added' : '';
+        const sizeCol = [b.size, b.attr_2].filter(Boolean).join(' / ');
+        return '<div class="batch-item' + highlight + '">' +
+          '<div>' +
+            '<div class="item-sku">' + b.sku_alt + (sizeCol ? ' &nbsp;&middot;&nbsp; ' + sizeCol : '') + '</div>' +
+            '<div class="item-desc">' + b.description + '</div>' +
+          '</div>' +
+          '<div class="item-right">' +
+            '<span class="item-qty">' + b.qty + '</span>' +
+            '<span class="item-remove" onclick="removeBatchItem(' + origIdx + ')">&#10005;</span>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+    bar.classList.add('visible');
+    document.getElementById('btnSubmit').textContent = 'Submit ' + totalQty + ' Units to Apparel Magic';
+
+    if (highlightSkuId) {
+      setTimeout(() => {
+        document.querySelectorAll('.batch-item.just-added').forEach(el => el.classList.remove('just-added'));
+      }, 600);
+    }
+  }
+
+  function clearAll() {
+    if (batch.length && !confirm('Clear all ' + batch.length + ' items?')) return;
+    batch = [];
+    renderBatch();
+    toast.className = 'toast';
+    document.getElementById('totalCount').textContent = '0';
+    barcodeInput.focus();
+  }
+
+  async function submitBatch() {
+    if (!batch.length) return;
+    const btn = document.getElementById('btnSubmit');
+    btn.disabled = true;
+    showToast('<span class="spinner"></span>Submitting to Apparel Magic...', 'info');
+
+    try {
+      const res = await fetch('/api/receive-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: batch.map(b => ({ sku_id: b.sku_id, qty: b.qty, cost: b.cost })),
+        }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        const totalQty = batch.reduce((s, b) => s + b.qty, 0);
+        showToast('Done — ' + totalQty + ' units across ' + batch.length + ' SKUs received', 'success');
+        batch = [];
+        renderBatch();
+        document.getElementById('totalCount').textContent = '0';
+      } else {
+        showToast('Error: ' + (data.error || JSON.stringify(data.details)), 'error');
+      }
+    } catch (err) {
+      showToast('Network error: ' + err.message, 'error');
+    }
+
+    btn.disabled = false;
+    barcodeInput.focus();
+  }
+</script>
+</body>
+</html>
